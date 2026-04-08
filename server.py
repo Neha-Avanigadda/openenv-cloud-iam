@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 import uvicorn
 from pydantic import BaseModel
 from env import CloudIAMEnv, IAMAction
@@ -6,16 +6,23 @@ from env import CloudIAMEnv, IAMAction
 app = FastAPI()
 env = None
 
-class ResetRequest(BaseModel):
-    task: str = "task-1-public-s3"
-
 class StepRequest(BaseModel):
     action: dict
 
 @app.post("/reset")
-async def reset(req: ResetRequest):
+async def reset(request: Request):
     global env
-    env = CloudIAMEnv(task_name=req.task)
+    task_name = "task-1-public-s3"
+    
+    # Safely try to read the JSON body if the grader sends one
+    try:
+        body = await request.json()
+        if body and "task" in body:
+            task_name = body["task"]
+    except Exception:
+        pass # If the grader sends null/nothing, just ignore it and use Task 1
+        
+    env = CloudIAMEnv(task_name=task_name)
     obs = await env.reset()
     return {"observation": obs.dict(), "reward": 0.0, "done": False, "info": {}}
 
