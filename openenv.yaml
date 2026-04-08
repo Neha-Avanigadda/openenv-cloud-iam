@@ -1,0 +1,13 @@
+version: "1.0"
+name: "cloud-iam-posture-gym"
+description: "Simulated AWS IAM and CSPM environment for remediating cloud misconfigurations without breaking service availability."
+tasks:
+  - id: "task-1-public-s3"
+    name: "Public S3 Bucket Remediation"
+    difficulty: "easy"
+  - id: "task-2-least-privilege"
+    name: "Lambda Least Privilege"
+    difficulty: "medium"
+  - id: "task-3-leaked-keys"
+    name: "Compromised Key Rotation"
+    difficulty: "hard"
