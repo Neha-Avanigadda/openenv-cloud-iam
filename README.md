@@ -1,77 +1,129 @@
-# ☁️ Cloud IAM & Security Posture Gym
-**An OpenEnv Benchmark for Autonomous Cloud Security Agents**
+# Cloud IAM Security Posture Gym ☁️🔒
 
-The **Cloud IAM & Security Posture Gym** is a specialized environment designed to evaluate how well AI agents can identify and remediate AWS security vulnerabilities while maintaining strict application uptime (the "Least Privilege" principle).
+An **OpenEnv** benchmark designed to evaluate an AI agent's ability to act as an automated Cloud Security Engineer. 
 
----
+Agents navigate a simulated AWS environment to identify and remediate vulnerabilities while maintaining the uptime of critical services.
 
-## 🏆 The Challenge: Security vs. Availability
-In this gym, agents act as automated SREs. It is not enough to simply delete a vulnerable resource. If an agent secures an S3 bucket or an IAM role but causes the underlying microservice to return a `False` health status, the reward is penalized.
-
-### 🧠 Action & Observation Space
-- **Action Space (`IAMAction`):** A JSON object containing a standard AWS CLI or Bash command.
-  - *Example:* `{"command": "aws s3api put-bucket-acl --bucket backup --acl private"}`
-- **Observation Space (`IAMObservation`):**
-  - `terminal_output`: Mock stdout/stderr from the environment.
-  - `service_health_status`: Boolean (Must stay `True` for full marks).
-  - `current_vulnerability_status`: `"Secure"` or `"Critical"`.
-
----
-
-## 🚀 Tasks
-| ID | Task Name | Difficulty | Objective |
+## 🚀 The Three Tasks
+| Task ID | Name | Difficulty | Objective |
 | :--- | :--- | :--- | :--- |
-| `task-1` | **Public S3** | Easy | Find a public bucket and set ACL to private. |
-| `task-2` | **Least Privilege** | Medium | Strip `Admin` from a Lambda and add `S3ReadOnly`. |
-| `task-3` | **Key Rotation** | Hard | Deactivate a leaked key and provision a new one. |
+| `task-1-public-s3` | Public S3 Remediation | Easy | Secure a publicly readable S3 bucket. |
+| `task-2-least-privilege` | Lambda Least Privilege | Medium | Replace `AdministratorAccess` with scoped S3 policies. |
+| `task-3-leaked-keys` | Compromised Key Rotation | Hard | Deactivate leaked IAM keys and provision secure rotations. |
 
----
+## 🛠️ Installation & Setup
+1. **Clone the repo:**
+   ```bash
+   git clone <your-repo-url>
+   cd openenv-cloud-iam
+Install dependencies:
 
-## 🛠️ Setup & Local Testing
+Bash
+pip install openenv-core openai pydantic fastapi uvicorn uv
+🤖 Running the Demo
+To see the baseline agent in action, use the provided inference.py script. This script demonstrates the agent's ability to solve task-1-public-s3 using a Groq-hosted Llama-3.3 model.
 
-### 1. Installation
-```powershell
-# Clone the repo
-git clone [https://github.com/Neha-Avanigadda/openenv-cloud-iam.git](https://github.com/Neha-Avanigadda/openenv-cloud-iam.git)
-cd openenv-cloud-iam
+Bash
+# Set your API Key
+export HF_TOKEN="your-api-key"
 
-# Setup Environment
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-2. Configuration
-Create a .env file in the root directory:
-
-Plaintext
-GROQ_API_KEY=your_key_here
-API_BASE_URL=[https://api.groq.com/openai/v1](https://api.groq.com/openai/v1)
-MODEL_NAME=llama-3.3-70b-versatile
-3. Execution
-PowerShell
+# Run the demo
 python inference.py
-🐳 Docker & Validation
-This project is built to be fully compatible with the OpenEnv grading specification.
+🐳 Docker Validation
+To verify the environment matches the OpenEnv standard:
 
-Build the image:
-
-Bash
 docker build -t cloud-iam-gym .
-Run Validation:
 
-Bash
-# Terminal 1
 docker run -p 7860:7860 cloud-iam-gym
 
-# Terminal 2
 ./validate-submission.sh http://localhost:7860 .
-📝 License
-MIT License. Created for the Meta-HuggingFace OpenEnv Challenge.
+
+Developed for the OpenEnv Round 1 Hackathon by Avanigadda Neha.
 
 
-### 💡 Pro-Tip for your GitHub:
-Since your project uses `python-dotenv`, make sure your `.gitignore` file contains these lines so you don't leak your keys again:
-```text
-.env
-venv/
-__pycache__/
-*.pyc
+---
+
+### 2. The Demo Script (`inference.py`)
+This script fulfills the "demo script" requirement. It acts as the "driver" that talks to your environment and proves it works.
+
+```python
+import os
+import asyncio
+import json
+from typing import List, Optional
+from openai import AsyncOpenAI
+
+# Import the environment and models from your local env.py
+from env import CloudIAMEnv, IAMAction
+
+# --- CONFIGURATION ---
+# The grader uses HF_TOKEN to pass the API key
+os.environ["OPENAI_API_KEY"] = os.getenv("HF_TOKEN", "your-api-key-here") 
+os.environ["API_BASE_URL"] = "https://api.groq.com/openai/v1"
+os.environ["MODEL_NAME"] = "llama-3.3-70b-versatile"
+
+# --- LOGGING HELPERS (STRICT OPENENV FORMAT) ---
+def log_start(task: str, env: str, model: str):
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]):
+    error_val = error if error else "null"
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error={error_val}", flush=True)
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]):
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+
+SYSTEM_PROMPT = """
+You are an autonomous Cloud Security agent. Secure the AWS infrastructure.
+Output ONLY valid JSON: {"command": "your aws cli command"}
+"""
+
+async def run_demo():
+    client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=os.environ["API_BASE_URL"])
+    model_name = os.environ["MODEL_NAME"]
+    task_name = "task-1-public-s3"
+    
+    env = CloudIAMEnv(task_name=task_name)
+    log_start(task=task_name, env="cloud-iam-gym", model=model_name)
+
+    history = []
+    rewards = []
+    score = 0.0
+    
+    try:
+        obs = await env.reset()
+        history.append({"role": "user", "content": f"Initial State: {json.dumps(obs.dict())}"})
+
+        for step in range(1, 6): # Max 5 steps for the demo
+            completion = await client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "system", "content": SYSTEM_PROMPT}] + history,
+                temperature=0.0
+            )
+            
+            response_text = completion.choices[0].message.content.strip()
+            # Basic cleanup for JSON
+            clean_json = response_text.replace("```json", "").replace("```", "").strip()
+            action_dict = json.loads(clean_json)
+            action = IAMAction(command=action_dict.get("command", "aws s3 ls"))
+
+            obs, reward, done, _ = await env.step(action)
+            score = reward
+            rewards.append(reward)
+            
+            log_step(step=step, action=action.command, reward=reward, done=done, error=None)
+            
+            if done: break
+            
+            history.append({"role": "assistant", "content": response_text})
+            history.append({"role": "user", "content": f"Observation: {json.dumps(obs.dict())}"})
+
+        log_end(success=score >= 1.0, steps=step, score=score, rewards=rewards)
+
+    except Exception as e:
+        print(f"Demo failed: {e}")
+        log_end(success=False, steps=0, score=0.0, rewards=[])
+
+if __name__ == "__main__":
+    asyncio.run(run_demo())
