@@ -1,9 +1,14 @@
 FROM python:3.11-slim
 WORKDIR /app
-COPY requirements.txt .
+
+# Copy absolutely everything from the repo into the container
+COPY . .
+
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-COPY env.py .
-COPY openenv.yaml .
-COPY server.py .
+
+# Expose the required port
 EXPOSE 7860
-CMD ["python", "server.py"]
+
+# Run the newly relocated app.py
+CMD ["python", "server/app.py"]

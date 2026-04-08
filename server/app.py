@@ -46,8 +46,9 @@ async def state():
         raise HTTPException(status_code=400, detail="Environment not initialized.")
     return await env.state()
 
-def run():
+# THIS MUST BE DEFINED AT THE TOP LEVEL
+def main():
     uvicorn.run(app, host="0.0.0.0", port=7860)
 
 if __name__ == "__main__":
-    run()
+    main()
