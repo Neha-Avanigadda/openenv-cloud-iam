@@ -4,13 +4,18 @@ import json
 from typing import List, Optional
 from openai import AsyncOpenAI
 
-# Import the environment and models from env.py
+# Import the environment and models from your local env.py
 from env import CloudIAMEnv, IAMAction, IAMObservation
 
-# Configure API Keys
-os.environ["OPENAI_API_KEY"] = os.getenv("GROQ_API_KEY", "your-key-here")
-os.environ["API_BASE_URL"] = "https://api.groq.com/openai/v1"
-os.environ["MODEL_NAME"] = "llama-3.3-70b-versatile"
+# --- 1. DYNAMIC CONFIGURATION (CRITICAL FOR PHASE 2) ---
+
+# The judges inject 'API_KEY' and 'API_BASE_URL' to track your calls through LiteLLM.
+# We use os.getenv to prioritize their injected values over your local fallbacks.
+API_KEY = os.getenv("API_KEY", os.getenv("HF_TOKEN", "your-fallback-key"))
+API_BASE = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
+MODEL = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
+
+# --- 2. LOGGING HELPERS (STRICT OPENENV FORMAT) ---
 
 def log_start(task: str, env: str, model: str) -> None:
     print(f"[START] task={task} env={env} model={model}", flush=True)
@@ -33,14 +38,18 @@ Format your output exactly like this:
 {"command": "your aws cli command here"}
 """
 
+# --- 3. MAIN INFERENCE LOOP ---
+
 async def main():
+    # Initialize the client using the injected API_BASE and API_KEY
     client = AsyncOpenAI(
-        api_key=os.environ["OPENAI_API_KEY"], 
-        base_url=os.environ["API_BASE_URL"]
+        api_key=API_KEY, 
+        base_url=API_BASE
     )
-    model_name = os.environ["MODEL_NAME"]
     
-    # Read the task dynamically, defaulting to task 1
+    model_name = MODEL
+    
+    # Task names injected by the benchmark runner
     task_name = os.getenv("MY_ENV_V4_TASK", "task-1-public-s3")
     benchmark_name = os.getenv("MY_ENV_V4_BENCHMARK", "cloud-iam-posture-gym")
     
@@ -65,6 +74,8 @@ async def main():
                     temperature=0.0,
                 )
                 response_text = completion.choices[0].message.content.strip()
+                
+                # Robust JSON cleaning
                 clean_json = response_text.replace("```json", "").replace("```", "").strip()
                 action_dict = json.loads(clean_json)
                 action = IAMAction(command=action_dict.get("command", "invalid"))
@@ -73,9 +84,11 @@ async def main():
                 response_text = '{"command": "error"}'
                 action = IAMAction(command="error")
 
+            # Execute step in the environment
             obs, reward, done, _ = await env.step(action)
             
-            score = reward # Reward tracks progress directly
+            # Update score and history
+            score = reward 
             rewards_list.append(reward)
             
             log_step(step=step, action=action.command, reward=reward, done=done, error=error_msg)
@@ -86,6 +99,7 @@ async def main():
             if done:
                 break
 
+        # Finalize results
         score = min(max(score, 0.0), 1.0)
         success = score >= 1.0
         log_end(success=success, steps=step, score=score, rewards=rewards_list)

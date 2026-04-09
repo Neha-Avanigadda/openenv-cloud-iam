@@ -1,3 +1,14 @@
+---
+title: "Cloud IAM Security Posture Gym"
+emoji: "🔒"
+colorFrom: "blue"
+colorTo: "indigo"
+sdk: "docker"
+app_port: 7860
+pinned: false
+license: "mit"
+---
+
 # Cloud IAM Security Posture Gym ☁️🔒
 
 An **OpenEnv** benchmark designed to evaluate an AI agent's ability to act as an automated Cloud Security Engineer. 

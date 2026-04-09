@@ -1,14 +1,23 @@
 FROM python:3.11-slim
 WORKDIR /app
 
-# Copy absolutely everything from the repo into the container
+# 1. Install system dependencies if needed
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
+# 2. Copy the configuration files first to cache layers
+COPY pyproject.toml uv.lock requirements.txt ./
+
+# 3. Install dependencies (including the 'uv' installer for speed)
+RUN pip install --no-cache-dir uv && uv pip install --system -r requirements.txt
+
+# 4. Copy the rest of the code
 COPY . .
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# 5. Install the local project in editable mode so 'server' is recognized
+RUN pip install -e .
 
-# Expose the required port
+# 6. Expose the port
 EXPOSE 7860
 
-# Run the newly relocated app.py
-CMD ["python", "server/app.py"]
+# 7. Start the server using the module path
+CMD ["python", "-m", "server.app"]
