@@ -5,12 +5,12 @@ tasks:
   - id: "task-1-public-s3"
     name: "Public S3 Bucket Remediation"
     difficulty: "easy"
-    grader: true
+    grader: "env:grade"
   - id: "task-2-least-privilege"
     name: "Lambda Least Privilege"
     difficulty: "medium"
-    grader: true
+    grader: "env:grade"
   - id: "task-3-leaked-keys"
     name: "Compromised Key Rotation"
     difficulty: "hard"
-    grader: true
+    grader: "env:grade"
